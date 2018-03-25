@@ -31,11 +31,13 @@ func main() {
 	}
 
 	var output map[string]listing_struct
-	err = c.Run(ctxt, scrapeListings(ctxt, c, output))
+	var res string
+	err = c.Run(ctxt, scrapeListings(ctxt, c, output, &res))
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	fmt.Printf("HI MUM %v", res)
 	// shutdown chrome
 	err = c.Shutdown(ctxt)
 	if err != nil {
@@ -53,7 +55,7 @@ func main() {
 	}
 }
 
-func scrapeListings(ctxt context.Context, c *chromedp.CDP, output map[string]listing_struct) chromedp.Tasks {
+func scrapeListings(ctxt context.Context, c *chromedp.CDP, output map[string]listing_struct, res *string) chromedp.Tasks {
 	// force max timeout of 15 seconds for retrieving and processing the data
 	var cancel func()
 	ctxt, cancel = context.WithTimeout(ctxt, 25*time.Second)
@@ -80,15 +82,15 @@ func scrapeListings(ctxt context.Context, c *chromedp.CDP, output map[string]lis
 		fmt.Errorf("could not get projects: %v", err)
 	}
 
-	var res string
 	var tasks chromedp.Tasks
 	for i := 0; i < (len(listings) - 1); i++ {
 		if strings.Contains(listings[i].Attributes[1], "is-hidden") == false {
 			var task chromedp.Tasks
 			task = chromedp.Tasks{
-				chromedp.Text(titles[i].FullXPath(), &res, chromedp.BySearch),
+				chromedp.Text(titles[i].FullXPath(), res, chromedp.BySearch),
 			}
 			tasks = append(tasks, task)
+			fmt.Printf("HI MUM %T : %s : %s", res, res, *res)
 		}
 	}
 	return tasks
