@@ -31,13 +31,12 @@ func main() {
 	}
 
 	var output map[string]listing_struct
-	var res string
-	err = c.Run(ctxt, scrapeListings(ctxt, c, output, &res))
-	if err != nil {
-		log.Fatal(err)
-	}
+	scrapeListings(ctxt, c, output)
+	// err = c.Run(ctxt, scrapeListings(ctxt, c, output))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	fmt.Printf("HI MUM %v", res)
 	// shutdown chrome
 	err = c.Shutdown(ctxt)
 	if err != nil {
@@ -55,14 +54,14 @@ func main() {
 	}
 }
 
-func scrapeListings(ctxt context.Context, c *chromedp.CDP, output map[string]listing_struct, res *string) chromedp.Tasks {
+func scrapeListings(ctxt context.Context, c *chromedp.CDP, output map[string]listing_struct) []string {
 	// force max timeout of 15 seconds for retrieving and processing the data
 	var cancel func()
 	ctxt, cancel = context.WithTimeout(ctxt, 25*time.Second)
 	defer cancel()
 
 	// run task list
-	var url = "http://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier=USERDEFINEDAREA%5E%7B%22id%22%3A4773322%7D&minBedrooms=3&maxPrice=900000&minPrice=500000&sortType=6&propertyTypes=detached%2Csemi-detached%2Cterraced&primaryDisplayPropertyType=houses&includeSSTC=true"
+	var url = "http://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier=POSTCODE%5E377902&minBedrooms=3&maxPrice=900000&radius=0.25&sortType=6&propertyTypes=detached%2Csemi-detached%2Cterraced&primaryDisplayPropertyType=houses"
 
 	if err := c.Run(ctxt, chromedp.Navigate(url)); err != nil {
 		fmt.Errorf("could not navigate to github: %v", err)
@@ -77,21 +76,43 @@ func scrapeListings(ctxt context.Context, c *chromedp.CDP, output map[string]lis
 		fmt.Errorf("could not get projects: %v", err)
 	}
 
-	var titles []*cdptypes.Node
-	if err := c.Run(ctxt, chromedp.Nodes(`div.l-searchResult h2.propertyCard-title`, &titles)); err != nil {
+	var titles []cdptypes.NodeID
+	if err := c.Run(ctxt, chromedp.NodeIDs(`div.l-searchResult h2.propertyCard-title`, &titles)); err != nil {
 		fmt.Errorf("could not get projects: %v", err)
 	}
 
-	var tasks chromedp.Tasks
+	var title_strings []string
+	var resu string
 	for i := 0; i < (len(listings) - 1); i++ {
 		if strings.Contains(listings[i].Attributes[1], "is-hidden") == false {
-			var task chromedp.Tasks
-			task = chromedp.Tasks{
-				chromedp.Text(titles[i].FullXPath(), res, chromedp.BySearch),
+			var temp_ids []cdptypes.NodeID
+			temp_ids = append(temp_ids, titles[i])
+
+			if err := c.Run(ctxt, chromedp.Text(temp_ids, &resu, chromedp.ByNodeID)); err != nil {
+				fmt.Errorf("could not get projects: %v", err)
 			}
-			tasks = append(tasks, task)
-			fmt.Printf("HI MUM %T : %s : %s", res, res, *res)
+			title_strings = append(title_strings, resu)
+			fmt.Printf("HI MUM %#v", title_strings)
+			fmt.Printf("HI MUM %#v", resu)
 		}
 	}
-	return tasks
+
+	return title_strings
+
+	// // var title_strings []*string
+	// var tasks chromedp.Tasks
+	// var res string
+	// for i := 0; i < (len(listings) - 1); i++ {
+	// 	if strings.Contains(listings[i].Attributes[1], "is-hidden") == false {
+	// 		if err := c.Run(ctxt, chromedp.Text(titles[i], &res, chromedp.ByNodeID)); err != nil {
+	// 			fmt.Errorf("could not get projects: %v", err)
+	// 		}
+	// 		var task chromedp.Tasks
+	// 		task = chromedp.Tasks{
+	// 			chromedp.Text(titles[i], &res, chromedp.ByNodeID),
+	// 		}
+	// 		tasks = append(tasks, task)
+	// 	}
+	// }
+	// return tasks
 }
